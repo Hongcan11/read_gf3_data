@@ -3,6 +3,20 @@
 import os
 # return a list of path(s) from the top directory
 def get_gf3_path(top_dir):
+    """
+    Function for getting meta_paths and slc_paths from top_dir. 
+
+    Parameters
+    ----------
+    top_dir : string
+        Top path of gf3_data.
+
+    Returns
+    -------
+    meta_paths : string
+    slc_paths : string
+
+    """    
     file_path = []
     for top_dir, dirs, files in os.walk(top_dir):           #顶层目录，文件夹，文件
          for dir in dirs:                                   #遍历目录下的文件夹
@@ -15,24 +29,48 @@ def get_gf3_path(top_dir):
 
 # return the meta data (in some sort of data structure, i.e., dictionary)
 def read_gf3_meta(meta_paths):
+    """
+    Function for reading gf3_metadata
+
+    Parameters
+    ----------
+    meta_paths : string
+
+    Returns
+    -------
+    meta : dictionary
+         Return a dictionary storing the metadata
+    """    
     meta = []
     files = os.listdir(meta_paths)                     #得到文件夹下所有文件的名称
     for file in files:                                 #遍历文件夹
         if os.path.isfile(file):                       #判断是不是文件
-           meta.append = ReadData(file)                #读取文件
+           meta.append = ReadMetaData(file)                #读取文件
         sub_path = get_gf3_path(meta_paths)[0]
-        read_gf3_meta(sub_path)                        #迭代读取子文件夹下的文件
+        read_gf3_meta(sub_path)                        #递归读取子文件夹下的文件
     return meta
 
 # return the SLC data (either in memory or on disk)
-def read_gf3_slc(gf3_meta, slc_path):
+def read_gf3_slc(slc_path):
+    """
+    Function for reading gf3_slc
+
+    Parameters
+    ----------
+    slc_path : string
+
+    Returns
+    -------
+    slc : array
+         Returns an array storing slc_data
+    """    
     slc = []
     files = os.listdir(meta_paths)           #得到文件夹下所有文件的名称
     for file in files:                       #遍历文件夹
         if os.path.isfile(file):             #判断是不是文件
-            slc.append = ReadData(file)      #读取文件
+            slc.append = ReadSLC(file)      #读取文件
         sub_path = get_gf3_path(slc_paths)[0]
-        read_gf3_slc(sub_path)               #迭代读取子文件夹下的文件
+        read_gf3_slc(sub_path)               #递归读取子文件夹下的文件
     return slc
 
 if __name__ == "__main__":
