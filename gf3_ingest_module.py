@@ -54,9 +54,10 @@ def read_gf3_meta(meta_paths):
          Return a dictionary storing the metadata
     """    
     meta = []
-
+    #get required metadata
+    get_orbit; get_acqDate ...
     # create meta_data dictionary
-
+    meta = {...}
     return meta
 
 # return the SLC data (either in memory or on disk)
@@ -73,7 +74,7 @@ def read_gf3_slc(slc_path):
     slc : array(range, azimuth)
          Returns an array storing slc_data
     """    
-    slc = []
+    slc = []     #array, 根据 boundingBox 给定数组的大小
     files = os.listdir(meta_paths)           #得到文件夹下所有文件的名称
     for file in files:                       #遍历文件夹
         if not os.path.isfile(file):         #判断是不是文件
