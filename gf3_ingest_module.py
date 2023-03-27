@@ -53,9 +53,13 @@ def read_gf3_meta(meta_paths):
     meta : dictionary
          Return a dictionary storing the metadata
     """    
-    meta = []
+    meta = {}
     #get required metadata
-    get_orbit; get_acqDate ...
+    get_orbit;
+    get_acqDate;
+    get_resolutions;
+    ...
+
     # create meta_data dictionary
     meta = {...}
     return meta
@@ -80,6 +84,7 @@ def read_gf3_slc(slc_path):
         if not os.path.isfile(file):         #判断是不是文件
             sub_path = os.path.join(meta_paths, file)
             slc.append = ReadSLC(sub_path)   #读取文件
+        
     return slc
 
 if __name__ == "__main__":
