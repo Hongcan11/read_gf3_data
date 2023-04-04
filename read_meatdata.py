@@ -1,64 +1,8 @@
-"""This module only concerns the reading part of the data.
-"""
-import os
 from xml.dom.minidom import parse
 import xml.dom.minidom
 from datetime import datetime
-# return a list of path(s) from the top directory
+# speedOfLight = 299792458.0
 
-def get_gf3_path(top_dir):
-
-    file_path = []       
-    meta_paths = []      
-    res_paths = []
-    raw_paths = []
-    cor_slaves_paths = []
-    for top_dir, dirs, files in os.walk(top_dir):          #顶层目录，文件夹，文件        
-        for dir in dirs:                                   #遍历目录下的文件夹
-            file_path.append(os.path.join(top_dir, dir))   #获得子目录路径
-    print('file_path', ':', file_path)                     #查看一下子目录
-    process_paths = file_path[0]           
-    slc_paths = file_path[1]               # 得到 process_paths，slc_paths
-    process_sub_paths = file_path[2]       # process_paths 文件夹下的 /S01B01
-    print('slc_path', ':', slc_paths)
-    print('process_sub_paths', ':', process_sub_paths)
-
-    for file in os.listdir(slc_paths):    # 遍历 SLC 文件路径
-        if not os.path.isfile(os.path.join(slc_paths, file)):
-            slaves_paths = os.path.join(slc_paths, file)       # 得到 SLC 下面两个文件夹的路径
-            for file in os.listdir(slaves_paths):
-                if file.endswith('meta.xml'):                  # 查找后缀名为 meta.xml 的文件
-                    meta_paths.append(os.path.join(slaves_paths, file))     # 添加到 meta_paths 里面
-    print('meta_paths', ':', meta_paths)
-
-    for file in os.listdir(process_sub_paths):                #遍历 /process/S01B01 文件夹
-        if not os.path.isfile(os.path.join(process_sub_paths, file)):
-            cor_slaves_paths = os.path.join(process_sub_paths, file)
-            print('cor_slaves_paths', ':', cor_slaves_paths)
-            for file in os.listdir(cor_slaves_paths):
-                if file.endswith('slave.res'):                 # 查找后缀名为 slave.res 的文件
-                    res_paths.append(os.path.join(cor_slaves_paths, file))
-                else:
-                    continue
-            for file in os.listdir(cor_slaves_paths):
-                if file.endswith('crop.raw'):                  # 查找后缀名为 crop.raw 的文件
-                    raw_paths.append(os.path.join(cor_slaves_paths, file))
-                else:
-                    continue
-        else:
-            if file.endswith('master.res'):                            
-                res_paths.append(os.path.join(process_sub_paths, file))           
-            elif file.endswith('master_crop.raw'):
-                raw_paths.append(os.path.join(process_sub_paths, file))
-            else:
-                continue
-
-    print('res_paths', ':', res_paths)
-    print('raw_paths', ':', raw_paths)
-    return meta_paths, raw_paths
-
-
-# return the meta data (in some sort of data structure, i.e., dictionary)
 
 def read_metadata(matadata_path):
     DOMTree = xml.dom.minidom.parse(matadata_path)
@@ -67,12 +11,14 @@ def read_metadata(matadata_path):
     orbit = root.getElementsByTagName("orbitID")[0].childNodes[0].nodeValue
     direction = root.getElementsByTagName("Direction")[0].childNodes[0].nodeValue
     satellite = root.getElementsByTagName("satellite")[0].childNodes[0].nodeValue
+    print(orbit, direction, satellite)
 
     # sensorinfo
     sensor = root.getElementsByTagName("sensor")
     imagingMode = sensor[0].getElementsByTagName("imagingMode")[0].childNodes[0].nodeValue
     lamda = sensor[0].getElementsByTagName("lamda")[0].childNodes[0].nodeValue   
     RCF = sensor[0].getElementsByTagName("RadarCenterFrequency")[0].childNodes[0].nodeValue
+    print(sensor, imagingMode, lamda, RCF)
     # wavelength = speedOfLight / (float(RCF) * 1e6)
 
     # waveinfo
@@ -89,7 +35,8 @@ def read_metadata(matadata_path):
     frameLength = wave[0].getElementsByTagName("frameLength")[0].childNodes[0].nodeValue
     groundVelocity = wave[0].getElementsByTagName("groundVelocity")[0].childNodes[0].nodeValue
     averageAltitude = wave[0].getElementsByTagName("averageAltitude")[0].childNodes[0].nodeValue
-    
+    print(waveCode, CLA, prf, proBandwidth, sampleRate, sampleDelay, bandWidth, pulseWidth, frameLength, groundVelocity, averageAltitude)
+
     # platform = root.getElementsByTagName("platform")
     # acqDate = platform[0].getElementsByTagName("CenterTime")[0].childNodes[0].nodeValue
 
@@ -98,6 +45,7 @@ def read_metadata(matadata_path):
     NoRes = productinfo[0].getElementsByTagName("NominalResolution")[0].childNodes[0].nodeValue
     productType = productinfo[0].getElementsByTagName("productType")[0].childNodes[0].nodeValue
     productFormat = productinfo[0].getElementsByTagName("productFormat")[0].childNodes[0].nodeValue
+    print(NoRes, productType, productFormat)
 
     # imageinfo
     imageinfo = root.getElementsByTagName("imageinfo")
@@ -136,6 +84,8 @@ def read_metadata(matadata_path):
     incidenceAngleNearRange = processinfo[0].getElementsByTagName("incidenceAngleNearRange")[0].childNodes[0].nodeValue
     incidenceAngleFarRange = processinfo[0].getElementsByTagName("incidenceAngleFarRange")[0].childNodes[0].nodeValue
     DEM = processinfo[0].getElementsByTagName("DEM")[0].childNodes[0].nodeValue
+    print(startTime, acqDate)
+    
     
     metadata = {
         "orbit": direction,
@@ -156,44 +106,37 @@ def read_metadata(matadata_path):
     }
     print(metadata)
     return metadata
-
-# return the SLC data (either in memory or on disk)
-# def read_gf3_slc(slc_path):
-#     """
-#     Function for reading gf3_slc
-
-#     Parameters
-#     ----------
-#     slc_path : string
-
-#     Returns
-#     -------
-#     slc : array(range, azimuth)
-#         Returns an array storing slc_data
-#     """    
-#     slc = []     #array, 根据 boundingBox 给定数组的大小
-#     files = os.listdir(meta_paths)           #得到文件夹下所有文件的名称
-#     for file in files:                       #遍历文件夹
-#         if not os.path.isfile(file):         #判断是不是文件
-#             sub_path = os.path.join(meta_paths, file)
-#             slc.append = ReadSLC(sub_path)   #读取文件
-        
-#     return slc
-
-# def SLC_to_HDF(slc_file, dates):
-#     with h5py.File(outHDF, "a") as f:
-#         f.creat_dataset().../SLC, IFG, HGT, meanBata, darampPhase
-#         f.attrs()   .../matadata
-#     return stackHDF
-
 if __name__ == "__main__":
-    gf3_meta = []
-    meta_paths, slc_paths = get_gf3_path("/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii")
-    print("meta_path: ", meta_paths)
-    # for meta_path, slc_path in (meta_paths, slc_paths):
-    for meta_path in (meta_paths):
-        print(meta_path)
-        gf3_meta.append(read_metadata(meta_path))
-        print("gf3_meta: ", gf3_meta)
-        # gf3_slc = read_gf3_slc(gf3_meta, slc_path)
-        # stackHDF = SLC_to_HDF(gf3_slc, dates)
+    read_metadata("/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii/slc/GF3C_KSC_FSII_004562_E105.4_N38.2_20230217_L1A_HHHV_L10000115189/GF3C_KSC_FSII_004562_E105.4_N38.2_20230217_L1A_HHHV_L10000115189.meta.xml")
+
+
+# metadata = {
+#         "orbit": geometry, /
+#         "acqDate": acqDate, /
+#         "azimuth0time": firstLineTime,  
+#         "range0time": range0time,    AbsRoot.getAttributeDouble(AbstractMetadata.slant_range_to_first_pixel)/ speedOfLight
+#         "PRF": PRF,
+#         "RSR": RSR,  /
+#         "wavelength": wavelength, /
+#         "orbitFit": orbFit,
+#         "rangeSpacing": rangeSampling,  height 方位 /
+#         "azimuthSpacing": azimuthSampling,  /
+#         "centerLon": centerLon,  /
+#         "centerLat": centerLat,  /
+#         "centerH": centerH,  /
+#         "nAzimuth": nAzimuth, /
+#         "nRange": nRange, /
+#         "swath": swath,
+#         "centerAzimuth": centerAzimuth,
+#         "beta0": beta0,
+#         "azimuthResolution": azRes, /
+#         "rangeResolution": rRes, /
+#         "nBursts": nBursts,
+#         "burstInfo": burstInfo,
+#         "steeringRate": steeringRate,
+#         "azFmRateArray": azFmRateArray,
+#         "dcPolyArray": dcPolyArray,
+#         "PRI": pri,
+#         "rank": rank,
+#         "chirpRate": chirpRate,
+#     }
