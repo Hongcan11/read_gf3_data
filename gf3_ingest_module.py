@@ -4,6 +4,7 @@ import os
 from xml.dom.minidom import parse
 import xml.dom.minidom
 from datetime import datetime
+import numpy as np
 # return a list of path(s) from the top directory
 
 def get_gf3_path(top_dir):
@@ -16,12 +17,12 @@ def get_gf3_path(top_dir):
     for top_dir, dirs, files in os.walk(top_dir):          #顶层目录，文件夹，文件        
         for dir in dirs:                                   #遍历目录下的文件夹
             file_path.append(os.path.join(top_dir, dir))   #获得子目录路径
-    print('file_path', ':', file_path)                     #查看一下子目录
+    # print('file_path', ':', file_path)                     #查看一下子目录
     process_paths = file_path[0]           
     slc_paths = file_path[1]               # 得到 process_paths，slc_paths
     process_sub_paths = file_path[2]       # process_paths 文件夹下的 /S01B01
-    print('slc_path', ':', slc_paths)
-    print('process_sub_paths', ':', process_sub_paths)
+    # print('slc_path', ':', slc_paths)
+    # print('process_sub_paths', ':', process_sub_paths)
 
     for file in os.listdir(slc_paths):    # 遍历 SLC 文件路径
         if not os.path.isfile(os.path.join(slc_paths, file)):
@@ -29,17 +30,17 @@ def get_gf3_path(top_dir):
             for file in os.listdir(slaves_paths):
                 if file.endswith('meta.xml'):                  # 查找后缀名为 meta.xml 的文件
                     meta_paths.append(os.path.join(slaves_paths, file))     # 添加到 meta_paths 里面
-    print('meta_paths', ':', meta_paths)
+    # print('meta_paths', ':', meta_paths)
 
     for file in os.listdir(process_sub_paths):                #遍历 /process/S01B01 文件夹
         if not os.path.isfile(os.path.join(process_sub_paths, file)):
             cor_slaves_paths = os.path.join(process_sub_paths, file)
             print('cor_slaves_paths', ':', cor_slaves_paths)
-            for file in os.listdir(cor_slaves_paths):
-                if file.endswith('slave.res'):                 # 查找后缀名为 slave.res 的文件
-                    res_paths.append(os.path.join(cor_slaves_paths, file))
-                else:
-                    continue
+            # for file in os.listdir(cor_slaves_paths):
+            #     if file.endswith('slave.res'):                 # 查找后缀名为 slave.res 的文件
+            #         res_paths.append(os.path.join(cor_slaves_paths, file))
+            #     else:
+            #         continue
             for file in os.listdir(cor_slaves_paths):
                 if file.endswith('crop.raw'):                  # 查找后缀名为 crop.raw 的文件
                     raw_paths.append(os.path.join(cor_slaves_paths, file))
@@ -53,8 +54,8 @@ def get_gf3_path(top_dir):
             else:
                 continue
 
-    print('res_paths', ':', res_paths)
-    print('raw_paths', ':', raw_paths)
+    # print('res_paths', ':', res_paths)
+    # print('raw_paths', ':', raw_paths)
     return meta_paths, raw_paths
 
 
@@ -154,46 +155,32 @@ def read_metadata(matadata_path):
         "azimuthResolution": Fs,
         "rangeResolution": PRF,
     }
-    print(metadata)
     return metadata
 
-# return the SLC data (either in memory or on disk)
-# def read_gf3_slc(slc_path):
-#     """
-#     Function for reading gf3_slc
+def read_gf3_slc(slc_path):
+    with open(slc_path, "rb") as f:        
+        slc = np.fromfile(f, dtype = np.float16)
+        slc = complex_short2complex(slc)
+        shape = (26665, 28238)
+        slc = np.reshape(slc, shape)
+        print(slc.shape, slc.dtype)
+    return slc
 
-#     Parameters
-#     ----------
-#     slc_path : string
-
-#     Returns
-#     -------
-#     slc : array(range, azimuth)
-#         Returns an array storing slc_data
-#     """    
-#     slc = []     #array, 根据 boundingBox 给定数组的大小
-#     files = os.listdir(meta_paths)           #得到文件夹下所有文件的名称
-#     for file in files:                       #遍历文件夹
-#         if not os.path.isfile(file):         #判断是不是文件
-#             sub_path = os.path.join(meta_paths, file)
-#             slc.append = ReadSLC(sub_path)   #读取文件
-        
-#     return slc
-
-# def SLC_to_HDF(slc_file, dates):
-#     with h5py.File(outHDF, "a") as f:
-#         f.creat_dataset().../SLC, IFG, HGT, meanBata, darampPhase
-#         f.attrs()   .../matadata
-#     return stackHDF
+def complex_short2complex(data):
+        data = np.copy(data).view(np.float16).astype('float32').view(np.complex64)
+        return data
 
 if __name__ == "__main__":
     gf3_meta = []
+    gf3_slc = []
     meta_paths, slc_paths = get_gf3_path("/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii")
     print("meta_path: ", meta_paths)
-    # for meta_path, slc_path in (meta_paths, slc_paths):
+    print("slc_path: ", slc_paths)
     for meta_path in (meta_paths):
         print(meta_path)
         gf3_meta.append(read_metadata(meta_path))
         print("gf3_meta: ", gf3_meta)
-        # gf3_slc = read_gf3_slc(gf3_meta, slc_path)
-        # stackHDF = SLC_to_HDF(gf3_slc, dates)
+    for slc_path in (slc_paths):
+        print("slc_path: ", slc_path)
+        gf3_slc.append(read_gf3_slc(slc_path))
+        print("gf3_slc: ", gf3_slc)
