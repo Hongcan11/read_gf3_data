@@ -1,66 +1,49 @@
 """This module only concerns the reading part of the data.
 """
 import os
+import h5py
+import re
 from xml.dom.minidom import parse
 import xml.dom.minidom
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
+
 # return a list of path(s) from the top directory
-
 def get_gf3_path(top_dir):
-
     file_path = []       
     meta_paths = []      
     res_paths = []
     raw_paths = []
     cor_slaves_paths = []
-    for top_dir, dirs, files in os.walk(top_dir):          #顶层目录，文件夹，文件        
-        for dir in dirs:                                   #遍历目录下的文件夹
-            file_path.append(os.path.join(top_dir, dir))   #获得子目录路径
-    # print('file_path', ':', file_path)                     #查看一下子目录
+    for top_dir, dirs, files in os.walk(top_dir):                 
+        for dir in dirs:                                   
+            file_path.append(os.path.join(top_dir, dir))   
+
     process_paths = file_path[0]           
     slc_paths = file_path[1]               # 得到 process_paths，slc_paths
-    process_sub_paths = file_path[2]       # process_paths 文件夹下的 /S01B01
-    # print('slc_path', ':', slc_paths)
-    # print('process_sub_paths', ':', process_sub_paths)
+    process_sub_paths = file_path[2]       # 得到 process/S01B01 文件夹的路径
 
-    for file in os.listdir(slc_paths):    # 遍历 SLC 文件路径
+    for file in os.listdir(slc_paths):    
         if not os.path.isfile(os.path.join(slc_paths, file)):
-            slaves_paths = os.path.join(slc_paths, file)       # 得到 SLC 下面两个文件夹的路径
+            slaves_paths = os.path.join(slc_paths, file)       
             for file in os.listdir(slaves_paths):
-                if file.endswith('meta.xml'):                  # 查找后缀名为 meta.xml 的文件
-                    meta_paths.append(os.path.join(slaves_paths, file))     # 添加到 meta_paths 里面
-    # print('meta_paths', ':', meta_paths)
+                if file.endswith('meta.xml'):                  
+                    meta_paths.append(os.path.join(slaves_paths, file))     
 
-    for file in os.listdir(process_sub_paths):                #遍历 /process/S01B01 文件夹
+    for file in os.listdir(process_sub_paths):                
         if not os.path.isfile(os.path.join(process_sub_paths, file)):
-            cor_slaves_paths = os.path.join(process_sub_paths, file)
-            print('cor_slaves_paths', ':', cor_slaves_paths)
-            # for file in os.listdir(cor_slaves_paths):
-            #     if file.endswith('slave.res'):                 # 查找后缀名为 slave.res 的文件
-            #         res_paths.append(os.path.join(cor_slaves_paths, file))
-            #     else:
-            #         continue
+            cor_slaves_paths = os.path.join(process_sub_paths, file)       
+            print(cor_slaves_paths)
             for file in os.listdir(cor_slaves_paths):
-                if file.endswith('crop.raw'):                  # 查找后缀名为 crop.raw 的文件
+                if file.endswith(('crop.raw', 'rsmp.raw')):                  
                     raw_paths.append(os.path.join(cor_slaves_paths, file))
                 else:
                     continue
-        else:
-            if file.endswith('master.res'):                            
-                res_paths.append(os.path.join(process_sub_paths, file))           
-            elif file.endswith('master_crop.raw'):
-                raw_paths.append(os.path.join(process_sub_paths, file))
-            else:
-                continue
 
-    # print('res_paths', ':', res_paths)
-    # print('raw_paths', ':', raw_paths)
     return meta_paths, raw_paths
 
-
 # return the meta data (in some sort of data structure, i.e., dictionary)
-
 def read_metadata(matadata_path):
     DOMTree = xml.dom.minidom.parse(matadata_path)
     root = DOMTree.documentElement
@@ -74,7 +57,6 @@ def read_metadata(matadata_path):
     imagingMode = sensor[0].getElementsByTagName("imagingMode")[0].childNodes[0].nodeValue
     lamda = sensor[0].getElementsByTagName("lamda")[0].childNodes[0].nodeValue   
     RCF = sensor[0].getElementsByTagName("RadarCenterFrequency")[0].childNodes[0].nodeValue
-    # wavelength = speedOfLight / (float(RCF) * 1e6)
 
     # waveinfo
     waveParams = sensor[0].getElementsByTagName("waveParams")
@@ -84,15 +66,6 @@ def read_metadata(matadata_path):
     prf = wave[0].getElementsByTagName("prf")[0].childNodes[0].nodeValue
     proBandwidth = wave[0].getElementsByTagName("proBandwidth")[0].childNodes[0].nodeValue
     sampleRate = wave[0].getElementsByTagName("sampleRate")[0].childNodes[0].nodeValue
-    sampleDelay = wave[0].getElementsByTagName("sampleDelay")[0].childNodes[0].nodeValue
-    bandWidth = wave[0].getElementsByTagName("bandWidth")[0].childNodes[0].nodeValue
-    pulseWidth = wave[0].getElementsByTagName("pulseWidth")[0].childNodes[0].nodeValue
-    frameLength = wave[0].getElementsByTagName("frameLength")[0].childNodes[0].nodeValue
-    groundVelocity = wave[0].getElementsByTagName("groundVelocity")[0].childNodes[0].nodeValue
-    averageAltitude = wave[0].getElementsByTagName("averageAltitude")[0].childNodes[0].nodeValue
-    
-    # platform = root.getElementsByTagName("platform")
-    # acqDate = platform[0].getElementsByTagName("CenterTime")[0].childNodes[0].nodeValue
 
     # productinfo
     productinfo = root.getElementsByTagName("productinfo")
@@ -113,19 +86,6 @@ def read_metadata(matadata_path):
     center = imageinfo[0].getElementsByTagName("center")
     cen_lat = center[0].getElementsByTagName("latitude")[0].childNodes[0].nodeValue
     cen_lon = center[0].getElementsByTagName("longitude")[0].childNodes[0].nodeValue
-    corner = imageinfo[0].getElementsByTagName("corner")
-    topLeft = corner[0].getElementsByTagName("topLeft")
-    TL_lat = topLeft[0].getElementsByTagName("latitude")[0].childNodes[0].nodeValue
-    TL_lon = topLeft[0].getElementsByTagName("longitude")[0].childNodes[0].nodeValue
-    topRight = corner[0].getElementsByTagName("topRight")
-    TR_lat = topRight[0].getElementsByTagName("latitude")[0].childNodes[0].nodeValue
-    TR_lon = topRight[0].getElementsByTagName("longitude")[0].childNodes[0].nodeValue
-    bottomLeft = corner[0].getElementsByTagName("bottomLeft")
-    BL_lat = bottomLeft[0].getElementsByTagName("latitude")[0].childNodes[0].nodeValue
-    BL_lon = bottomLeft[0].getElementsByTagName("longitude")[0].childNodes[0].nodeValue
-    bottomRight = corner[0].getElementsByTagName("bottomRight")
-    BR_lat = bottomRight[0].getElementsByTagName("latitude")[0].childNodes[0].nodeValue
-    BR_lon = bottomRight[0].getElementsByTagName("longitude")[0].childNodes[0].nodeValue
     width = imageinfo[0].getElementsByTagName("width")[0].childNodes[0].nodeValue
     height = imageinfo[0].getElementsByTagName("height")[0].childNodes[0].nodeValue
     widthspace = imageinfo[0].getElementsByTagName("widthspace")[0].childNodes[0].nodeValue
@@ -134,8 +94,6 @@ def read_metadata(matadata_path):
 
     # processinfo
     processinfo = root.getElementsByTagName("processinfo")
-    incidenceAngleNearRange = processinfo[0].getElementsByTagName("incidenceAngleNearRange")[0].childNodes[0].nodeValue
-    incidenceAngleFarRange = processinfo[0].getElementsByTagName("incidenceAngleFarRange")[0].childNodes[0].nodeValue
     DEM = processinfo[0].getElementsByTagName("DEM")[0].childNodes[0].nodeValue
     
     metadata = {
@@ -157,30 +115,86 @@ def read_metadata(matadata_path):
     }
     return metadata
 
+# return the slc data (in some sort of data structure, i.e., array)
 def read_gf3_slc(slc_path):
     with open(slc_path, "rb") as f:        
-        slc = np.fromfile(f, dtype = np.float16)
-        slc = complex_short2complex(slc)
+        slc = np.fromfile(f, dtype=np.dtype([('real', '>i2'), ('imag', '>i2')]), count=-1)
+        slc = slc['real'] + 1j * slc['imag']
+        print('slc:', slc)
         shape = (26665, 28238)
         slc = np.reshape(slc, shape)
         print(slc.shape, slc.dtype)
     return slc
 
-def complex_short2complex(data):
-        data = np.copy(data).view(np.float16).astype('float32').view(np.complex64)
-        return data
+# function for extracting date from string
+def get_date(path, pattern):
+    match = re.search(pattern, path)
+    if match:      
+       date = match.group(1)
+       print("date: ", date)
+    else:
+       print("Not Found!")
+    return date
+
+def plot_slc_data(slc_data, date):
+    plt.figure(dpi=200)
+    plt.imshow(np.abs(slc_data), cmap='gray')
+    print("amplitude:", np.abs(slc_data))
+    plt.savefig('/data/tests/hongcan/GF3/map/' + date +'_amplitude.png')
+
+# function to convert complex_short data to complex data
+# def complex_short2complex(data):
+#         data = np.copy(data).view(np.float16).astype('float32').view(np.complex64)
+#         return data
+
+def metadata2HDF(metadata, HDF5_path, date):
+    with h5py.File(HDF5_path, 'a') as f:
+        if "metadata" not in f.keys():
+            g = f.create_group(date + "_meta")
+        else:
+            g = f[date + "_meta"]
+        for key, value in metadata[0].items():
+            print(key, type(value))
+            if key == 'acqDate':               
+                value = str(value)
+            g.attrs[key] = value    
+    f.close()
+
+def slc2HDF(slc_data, HDF5_path, date):
+    with h5py.File(HDF5_path, 'a') as f:
+        if "SLC" not in f.keys():
+            g = f.create_group("SLC")
+        else:
+            g = f["SLC"]
+        if date not in g.keys():
+            g.create_dataset(date, data=slc_data)
+        else:
+            g[date][...] = slc_data        
+    f.close()
 
 if __name__ == "__main__":
     gf3_meta = []
     gf3_slc = []
-    meta_paths, slc_paths = get_gf3_path("/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii")
+    date = None
+    path = "/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii"
+
+    f = h5py.File(path + '/' + "gf3.hdf5", 'w')
+    f.close()
+    HDF5_path = path + '/' + "gf3.hdf5"
+
+    meta_paths, slc_paths = get_gf3_path(path)
     print("meta_path: ", meta_paths)
     print("slc_path: ", slc_paths)
+
     for meta_path in (meta_paths):
-        print(meta_path)
-        gf3_meta.append(read_metadata(meta_path))
-        print("gf3_meta: ", gf3_meta)
+        pattern1 = r"_(\d{8})_"
+        date = get_date(meta_path, pattern1)
+        gf3_meta.append(read_metadata(meta_path))        
+        metadata2HDF(gf3_meta, HDF5_path, date)
+    
     for slc_path in (slc_paths):
-        print("slc_path: ", slc_path)
+        pattern2 = r"/(\d{8})/"
+        date = get_date(slc_path, pattern2)
         gf3_slc.append(read_gf3_slc(slc_path))
-        print("gf3_slc: ", gf3_slc)
+        slc2HDF(gf3_slc[-1], HDF5_path, date)
+        plot_slc_data(gf3_slc[-1], date)
