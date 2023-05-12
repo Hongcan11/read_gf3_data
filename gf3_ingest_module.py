@@ -153,7 +153,7 @@ def metadata2HDF(metadata, HDF5_path, date):
             g = f.create_group(date + "_meta")
         else:
             g = f[date + "_meta"]
-        for key, value in metadata[0].items():
+        for key, value in metadata[-1].items():
             print(key, type(value))
             if key == 'acqDate':               
                 value = str(value)
