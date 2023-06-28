@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndi
 
-def selectPSc(stackHDF, D_A_thr=0.5):
+def selectPSc(stackHDF, D_A_thr=0.25):
     with h5py.File(stackHDF, "a") as f:
         dataset = f['SLC/20230217']
-        AOIdataset = dataset[6000:7550, 6000:7550]
+        AOIdataset = dataset[6000:6500, 6000:6500]
     azSize, rgSize = AOIdataset.shape
     beta0array = np.zeros((azSize, rgSize))
     DN = np.abs(AOIdataset)
@@ -213,7 +213,7 @@ def plot_psc(psc):
     rg = psc["rgIdx"][:]
     print(D_A.shape, D_A)
     fig, ax = plt.subplots(figsize=(10, 10), dpi=200)
-    q = ax.scatter(rg, az, s=D_A)
+    q = ax.scatter(rg, az, c=D_A, s=10)
     ax.set_xlabel("pixels")
     ax.yaxis.set_tick_params(rotation=90)
     ax.set_ylabel("lines")
