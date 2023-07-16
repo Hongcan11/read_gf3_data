@@ -5,51 +5,74 @@ import scipy.ndimage as ndi
 
 def selectPSc(stackHDF, D_A_thr=0.25):
     with h5py.File(stackHDF, "a") as f:
-        dataset = f['SLC/20230217']
-        AOIdataset = dataset[6000:6500, 6000:6500]
-    azSize, rgSize = AOIdataset.shape
-    beta0array = np.zeros((azSize, rgSize))
-    DN = np.abs(AOIdataset)
-    Ks = 0.00000000025
-    beta0 = (Ks * np.power(np.abs(DN), 2))[0, 0]
-    print("beta0: ", beta0)
-    beta0array = np.power(np.abs(AOIdataset), 2) / (
-            beta0 ** 2)
-    print("beta0array ", beta0array, beta0array.shape)
-    meanBeta_dB = 10 * np.log10(beta0array + 1e-14)
-    print("meanBetaDB: ", meanBeta_dB)
-    meanAmp = np.sqrt(np.power(10, (meanBeta_dB / 10)))
-    stdAmp = np.nanstd(np.sqrt(beta0array))
-    D_A = stdAmp / meanAmp
-    print("meanAmp: ", meanAmp)
-    print("stdAmp: ", stdAmp)
-    print("D_A: ", D_A)
-    peaks = peak_local_max(meanAmp)
-    print("peaks: ", peaks, peaks.shape)
-    azIdx = peaks.T[0]
-    rgIdx = peaks.T[1]
-    print("azIdx, rgIdx: ", azIdx, rgIdx)
+        group = f['SLC']
+        nSLC = len(group.keys())
+        azSize, rgSize = f["SLC/20230217"].shape
+        beta0array = np.zeros((azSize, rgSize, 2))
+        dates = list(group.keys())
+        Ks = 0.00000001
+        for date in dates:
+            DN = np.abs(group[date])
+            beta0 = (Ks * np.power(np.abs(DN), 2))[0, 0]
+            group[date].attrs["beta0"] = beta0
+        print("beta0: ", beta0)
+        idx = 0
+        for k in f["SLC"].keys():
+            beta0array[:, :, idx] = np.power(np.abs(f["SLC"][k][:]), 2) / (
+                f["SLC"][k].attrs["beta0"] ** 2
+            )
+            idx += 1
+        print("beta0array ", beta0array, beta0array.shape)
+        meanBeta_dB = np.nanmean(10 * np.log10(beta0array + 1e-14), axis=2)
+        print("meanBetaDB: ", meanBeta_dB)
+        if "meanBeta" in f.keys():
+            del f["meanBeta"]
+        f.create_dataset("meanBeta", data=meanBeta_dB)
+        if "master_SLC" in f.keys():
+            del f["master_SLC"]
+        f.create_dataset("master_SLC", data=f["SLC/20230217"])
+
+        meanAmp = np.sqrt(np.power(10, (meanBeta_dB / 10)))
+        stdAmp = np.nanstd(np.sqrt(beta0array), axis=2)
+        D_A = stdAmp / meanAmp
+        print("meanAmp: ", meanAmp)
+        print("stdAmp: ", stdAmp)
+        print("D_A: ", D_A)
+        peaks = peak_local_max(meanAmp)
+        print("peaks: ", peaks, peaks.shape)
+        azIdx = peaks.T[0]
+        rgIdx = peaks.T[1]
+        print("azIdx, rgIdx: ", azIdx, rgIdx)
     # use D_A threshold:
-    peak_D_A = D_A[peaks.T[0], peaks.T[1]]
-    print("peak_D_A: ", peak_D_A, peak_D_A.shape)
-    azIdx = azIdx[peak_D_A < D_A_thr]
-    rgIdx = rgIdx[peak_D_A < D_A_thr]
-    print("select azIdx, rgIdx: ", azIdx, rgIdx)
-    print("azidx, rgidx size: ", azIdx.size, rgIdx.size)
+        peak_D_A = D_A[peaks.T[0], peaks.T[1]]
+        print("peak_D_A: ", peak_D_A, peak_D_A.shape)
+        azIdx = azIdx[peak_D_A < D_A_thr]
+        rgIdx = rgIdx[peak_D_A < D_A_thr]
+        print("select azIdx, rgIdx: ", azIdx, rgIdx)
+        print("azidx, rgidx size: ", azIdx.size, rgIdx.size)
     # # read SLC and IFG:
-    SLCarray = np.zeros((azIdx.size), dtype="cfloat")
-    SLC = AOIdataset[:]
-    SLCarray[:] = SLC[azIdx, rgIdx]
+        SLCarray = np.zeros((azIdx.size, nSLC), dtype="cfloat")
+        IFGarray = np.zeros((azIdx.size, nSLC), dtype="cfloat")
+        idx = 0
+        for k in f["SLC"].keys():
+            SLC = f["SLC"][k][:]
+            SLCarray[:, idx] = SLC[azIdx, rgIdx]
+            del SLC
+            IFG = f["IFG"][k][:]
+            IFGarray[:, idx] = IFG[azIdx, rgIdx]
+            del IFG
+            idx += 1
     
     # prepare psc dict:
-    psc = {
-        "dataset": AOIdataset,
-        "azIdx": azIdx,
-        "rgIdx": rgIdx,
-        "SLC": SLCarray,
-        "D_A": D_A[azIdx, rgIdx],
-    }
+        psc = {
+            "azIdx": azIdx,
+            "rgIdx": rgIdx,
+            "SLC": SLCarray,
+            "IFG": IFGarray,
+            "D_A": D_A[azIdx, rgIdx]
+        }
     print("D_A: ", psc["D_A"].shape)
+    print(str(azIdx) + " PSC selected.")
     return psc
 
 def peak_local_max(image, min_distance=1, threshold_abs=None,
@@ -207,7 +230,7 @@ def _get_high_intensity_peaks(image, mask, num_peaks):
         coord = coord[:num_peaks]
     return coord
 
-def plot_psc(psc):
+def plot_psc(psc, outDir):
     D_A = psc["D_A"][:]
     az = psc["azIdx"][:]
     rg = psc["rgIdx"][:]
@@ -220,8 +243,8 @@ def plot_psc(psc):
     ax.set_title("D_A of PSC")
     plt.set_cmap("viridis")
     fig.colorbar(q, ax=ax)
-    plt.savefig('/data/tests/hongcan/GF3/inner_mongolia', bbox_inches="tight")
+    plt.savefig(outDir + '/psc_D_A.png', bbox_inches="tight")
 
-if __name__ == "__main__":
-    psc = selectPSc(stackHDF= '/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii/gf3.hdf5', D_A_thr=0.25)
-    plot_psc(psc)
+# if __name__ == "__main__":
+#     psc = selectPSc(stackHDF= '/data/tests/hongcan/GF3/cn_inner_mongolia_gf3c_dsc_fsii/gf3.hdf5', D_A_thr=0.25)
+#     plot_psc(psc)
